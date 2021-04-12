@@ -253,14 +253,23 @@ while True: #main command loop
 
             if song != "$playlist-done":
                 if ".m3u" in song: # if its a playlist add all its songs
-                    songParent = song.split("\\")[0]
+                    songParent = song.split("\\")[0] 
+                    # if we are adding a playlist in the same directory, the songparent will be the file itself, so in that case, don't add any parent dir to the song
+                    if ".m3u" in songParent and os.path.isfile(currpath + "\\" + songParent):
+                        songParent = ""
+                    else:
+                        #else append the parent Directory and a backslash to the song
+                        songParent += "\\"
 
+                    # read the playlist file, get an array of all it's lines
                     f = codecs.open(currpath + "\\" + song, "r", "utf-8")
                     tempcontents = f.read()
                     lines = tempcontents.split("\n")
                     f.close()
+
                     for line in lines:
-                        playlist.append(songParent + "\\" + line)
+                        if songParent + line not in playlist: #only add the song if it already isn't in the playlist, to avoid duplicates
+                            playlist.append(songParent + line)
                 else: #add the song to the playlist
                     playlist.append(song)
             else: #pasue the process
@@ -270,15 +279,16 @@ while True: #main command loop
                 print("add more? (a) save to file? (s) cancel? (c)")
                 decision = input(": ")
 
-                if decision == "a": #add more
-                    # just continue ig
-                    done = False
-                elif decision == "s": #save
+                if decision == "s": #save
                     done = True
                     save = True
                 elif decision == "c": #cancel
                     done = True
                     save = False
+                elif decision == "a":
+                    print("returned to add mode")
+                else: 
+                    print("'{}' not recognized. returning to add mode".format(decision))
 
         if save == True:
             f = codecs.open(currpath + "\\" + name + ".m3u", "w", "utf-8")
