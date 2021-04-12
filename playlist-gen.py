@@ -1,13 +1,16 @@
 import os
 import pathlib
 import codecs
+from prompt_toolkit.completion import WordCompleter, FuzzyWordCompleter
+from prompt_toolkit.shortcuts import prompt
+from prompt_toolkit.validation import Validator, ValidationError
 
 exts = ["mp3"] #extensions to consider as valid
 ign = [] #folder names to ignore
 
-def generatem3u(currpath): #main generation function
+def generatem3u(currpath, returnInsteadOfWriting, includePlaylists): #main generation function - if ret = true then don't write file, only return an array
     music = [] #valid music files
-    listOfFiles = [] #all files
+    listOfFiles = [] #all files for the current directory, with relative path
 
     #clear arrays for good measure
     music.clear()
@@ -26,29 +29,39 @@ def generatem3u(currpath): #main generation function
         parts = song.split('.')
         ext = parts[-1]
 
-        if str(ext).lower() in exts:
+        #if the file extension is in the 'myext' list, add it to music
+        myexts = exts
+        if includePlaylists == True:
+            myexts.append('m3u')
+
+        if str(ext).lower() in myexts: 
             music.append(song)
     if str(name) in ign: #ingore if on the ignore list
         print("ignoring folder " + name)
     else:
-        if music.__len__() > 0: #write mp3 songs to file
-            f = codecs.open(currpath + "\\" + name+".m3u", "w", "utf-8")
-            aaa = "\n".join(music)
-            f.write(aaa)
-            f.close()
-            print("generated {}.m3u".format(name))
-            music.clear()
-            listOfFiles.clear()
+        if music.__len__() > 0: #write mp3 songs to file or return array
+            if returnInsteadOfWriting == True:
+                return music
+            else:
+                f = codecs.open(currpath + "\\" + name+".m3u", "w", "utf-8")
+                aaa = "\n".join(music)
+                f.write(aaa)
+                f.close()
+                print("generated {}.m3u".format(name))
+                music.clear()
+                listOfFiles.clear()
         else: #if no valid songs just skip
             print("no mp3 files found for "+ name)
 
 def init(): #main generation init function
+    # get the current path using pathlib
     currpath = str(pathlib.Path(__file__).parent.absolute())
-
-    dirs = [str(x[0]) for x in os.walk(currpath)] #get all subdirectories
+    
+    #get all subdirectories - x is an array which contains the path as first, and the files as the rest of the array, we only need the path
+    dirs = [str(x[0]) for x in os.walk(currpath)] 
 
     for dir in dirs: #generate for every subdirectory
-        generatem3u(dir)
+        generatem3u(dir, False, False)
 
 currpath = str(pathlib.Path(__file__).parent.absolute())
 print("welcome to playlist generator.")
@@ -66,17 +79,22 @@ while True: #main command loop
 
     if command == 'help':
         print("---------- help:")
-        prn = ["help - display this message",
-            "'exit' - exit this utility",
-            "'gen' - recursively generate m3u playlists for all folders and subfolders",
+        prn = [
+            "---------- setup ----------",
             "'ext' - set the extensions of music files. default: mp3",
             "'ign' - set the folders to ignore in generation. none by default",
+            "---------- actions ----------",
+            "'gen' - recursively generate m3u playlists for all folders and subfolders",
             "'prg' - delete all existing .m3u files in the working directory for a clean slate",
             "'com' - generate a playlist from multiple specific folders",
             "'add' - add a folder or folders to a playlist made by 'com'. doesen't rename the playlist",
-            "'add -r' - same thing as 'add' but appends the folder name to the playlist name. "]
+            "'add -r' - same thing as 'add' but appends the folder name to the playlist name. ",
+            "'new' - manually make a new playlist by selecting songs and playlists",
+            "---------- other ----------",
+            "'help' - display this message",
+            "'exit' or 'quit' - exit this utility"]
         print("\n".join(prn))
-    elif command == 'exit':
+    elif command == 'exit' or command == "quit":
         quit()
     elif command == 'gen':
         print("generating for all subfolders..")
@@ -143,7 +161,7 @@ while True: #main command loop
             contents = ""
             for p in plays:
                 if os.path.isdir(p):
-                    generatem3u(currpath + "\\" + p)
+                    generatem3u(currpath + "\\" + p, False, False)
 
                     f = codecs.open("{}\\{}\\{}.m3u".format(currpath, p, p), "r", "utf-8")
                     tempcontents = f.read()
@@ -204,6 +222,72 @@ while True: #main command loop
                 print("and renamed '{}' to '{}'".format(playlist, newplaylist))
         else:
             print(playlist + " does not exist.")
+    elif command == "new":
+        print("---------- new")
+        print("name your new playlist: ")
+        name = input(": ")
+
+        allsongs = generatem3u(currpath, True, True)
+
+        #set up autocomplete
+        class SongValidator(Validator): #autocomplete validator = check if song acutally exists
+            def validate(self, document):
+                text = document.text
+                if text and text not in allsongs and text != "$playlist-done":
+                    raise ValidationError(message="this song doesen't exist", cursor_position=text.__len__())
+        #set up completer
+        done = False
+        save = False
+        song = ""
+        playlist = []
+        print("---------- new playlist: {}.m3u".format(name))
+        print("search for a song or playlist you want to add (tab to show suggestions)")
+        print("if you are done, just type '$playlist-done'")
+
+        while done == False:
+            availableSongs = [x for x in allsongs if x not in playlist] #only suggest songs not already in the playlist
+            availableSongs.append("$playlist-done")
+            song_completer = WordCompleter(availableSongs, ignore_case=True, sentence = True,match_middle=True)
+            # autocomplete prompt
+            song = prompt("-> ",completer=song_completer,validator=SongValidator(),complete_while_typing=True,validate_while_typing=False)
+
+            if song != "$playlist-done":
+                if ".m3u" in song: # if its a playlist add all its songs
+                    songParent = song.split("\\")[0]
+
+                    f = codecs.open(currpath + "\\" + song, "r", "utf-8")
+                    tempcontents = f.read()
+                    lines = tempcontents.split("\n")
+                    f.close()
+                    for line in lines:
+                        playlist.append(songParent + "\\" + line)
+                else: #add the song to the playlist
+                    playlist.append(song)
+            else: #pasue the process
+                print("---------- {}.m3u ----------".format(name))
+                print(playlist)
+                print("----------")
+                print("add more? (a) save to file? (s) cancel? (c)")
+                decision = input(": ")
+
+                if decision == "a": #add more
+                    # just continue ig
+                    done = False
+                elif decision == "s": #save
+                    done = True
+                    save = True
+                elif decision == "c": #cancel
+                    done = True
+                    save = False
+
+        if save == True:
+            f = codecs.open(currpath + "\\" + name + ".m3u", "w", "utf-8")
+            f.write("\n".join(playlist))
+            f.close()
+
+            print("sucessfully made playlist {}.m3u".format(name))
+        elif save == False:
+            print("creating playlist was cancelled, notihing saved.")
     else:
         print("'{}' is not a command. use 'help' to display all commands.".format(command))
        
