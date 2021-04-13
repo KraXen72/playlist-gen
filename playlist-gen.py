@@ -39,7 +39,6 @@ def getSongInfo(song, currpath):
         "tartist": artist,
         "tlength": str(Decimal(output.info.length).quantize(Decimal('0.001'), ROUND_HALF_UP)).replace(".","") # round to 3 decimal spaces and replace the dot with nothing
     }
-    print(myinfo)
     extinfo = "#EXTINF:{},{} - {}".format(myinfo["tlength"], myinfo["tartist"], myinfo["ttitle"])
     return extinfo
 
