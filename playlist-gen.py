@@ -1,17 +1,48 @@
 import os
 import pathlib
 import codecs
+import mutagen
+from decimal import *
 from prompt_toolkit.completion import WordCompleter, FuzzyWordCompleter
 from prompt_toolkit.shortcuts import prompt
 from prompt_toolkit.validation import Validator, ValidationError
 
 global exts
-global addExtInfs
+global useEXTINF
+useEXTINF = True
 addExtInfs = True
 exts = ["mp3"] #extensions to consider as valid
 ign = [] #folder names to ignore
 
 #functions
+
+#get info about a song
+def getSongInfo(song, currpath):
+    if currpath != "": #if currpath is empty, then just put the song by itself
+        currpath += "\\"
+    info = mutagen.File(currpath + song)
+    output = info
+    title = ""
+    artist = ""
+
+    try:
+        artist = output.tags["TPE1"].text[0]
+    except:
+        artist = "Unknown Artist"
+
+    try:
+        title = output.tags["TIT2"].text[0]
+    except: 
+        title = "Unknown Title"
+    
+    myinfo = {
+        "ttitle": title,
+        "tartist": artist,
+        "tlength": str(Decimal(output.info.length).quantize(Decimal('0.001'), ROUND_HALF_UP)).replace(".","") # round to 3 decimal spaces and replace the dot with nothing
+    }
+    print(myinfo)
+    extinfo = "#EXTINF:{},{} - {}".format(myinfo["tlength"], myinfo["tartist"], myinfo["ttitle"])
+    return extinfo
 
 # generate a playlist for given path
 # arguments:
@@ -44,7 +75,9 @@ def generatem3u(currpath, returnInsteadOfWriting, includePlaylists):
         if includePlaylists == True:
             myexts.append('m3u')
 
-        if str(ext).lower() in myexts: 
+        if str(ext).lower() in myexts:
+            if useEXTINF == True:
+                music.append(getSongInfo(song, currpath))
             music.append(song)
     if str(name) in ign: #ingore if on the ignore list
         print("ignoring folder " + name)
@@ -53,6 +86,8 @@ def generatem3u(currpath, returnInsteadOfWriting, includePlaylists):
             if returnInsteadOfWriting == True:
                 return music
             else:
+                if useEXTINF == True:
+                    music.insert(0,'#EXTM3U')
                 f = codecs.open(currpath + "\\" + name+".m3u", "w", "utf-8")
                 aaa = "\n".join(music)
                 f.write(aaa)
@@ -170,7 +205,11 @@ def cmdcom():
                 lines = tempcontents.split("\n")
                 newlines = []
                 for line in lines:
+                    if useEXTINF == True:
+                        newlines.append(getSongInfo(line, p))
                     newlines.append(p + "\\" + line)
+                if useEXTINF == True:
+                    newlines.insert(0,'#EXTM3U')
                 contents += "\n".join(newlines)
                 f.close()
             else:
@@ -207,7 +246,11 @@ def cmdadd(mode):
             lines = tempcontents.split("\n")
             newlines = []
             for line in lines:
+                if useEXTINF == True:
+                    newlines.append(getSongInfo(line, folder))
                 newlines.append(folder + "\\" + line)
+            if useEXTINF == True:
+                    newlines.insert(0,'#EXTM3U')
             append += "\n".join(newlines)
             f.close()
         f = codecs.open(currpath + "\\" + playlist, "a", "utf-8")
@@ -276,8 +319,12 @@ def cmdnew():
 
                 for line in lines:
                     if songParent + line not in playlist: #only add the song if it already isn't in the playlist, to avoid duplicates
+                        if useEXTINF == True:
+                            playlist.append(getSongInfo(line, songParent.replace("\\","")))
                         playlist.append(songParent + line)
             else: #add the song to the playlist
+                if useEXTINF == True:
+                    playlist.append(getSongInfo(song, ""))
                 playlist.append(song)
         else: #pasue the process
             print("---------- {}.m3u ----------".format(name))
@@ -299,6 +346,8 @@ def cmdnew():
 
     if save == True:
         f = codecs.open(currpath + "\\" + name + ".m3u", "w", "utf-8")
+        if useEXTINF == True:
+            playlist.insert(0,'#EXTM3U')
         f.write("\n".join(playlist))
         f.close()
 
