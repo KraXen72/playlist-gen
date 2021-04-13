@@ -10,7 +10,6 @@ from prompt_toolkit.validation import Validator, ValidationError
 global exts
 global useEXTINF
 useEXTINF = True
-addExtInfs = True
 exts = ["mp3"] #extensions to consider as valid
 ign = [] #folder names to ignore
 
