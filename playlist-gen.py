@@ -203,9 +203,10 @@ def cmdcom():
                 lines = tempcontents.split("\n")
                 newlines = []
                 for line in lines:
-                    if useEXTINF == True:
-                        newlines.append(getSongInfo(line, p))
-                    newlines.append(p + "\\" + line)
+                    if "#EXTINF:" not in line and '#EXTM3U' not in line:
+                        if useEXTINF == True:
+                            newlines.append(getSongInfo(line, p))
+                        newlines.append(p + "\\" + line)
                 if useEXTINF == True:
                     newlines.insert(0,'#EXTM3U')
                 contents += "\n".join(newlines)
@@ -244,9 +245,10 @@ def cmdadd(mode):
             lines = tempcontents.split("\n")
             newlines = []
             for line in lines:
-                if useEXTINF == True:
-                    newlines.append(getSongInfo(line, folder))
-                newlines.append(folder + "\\" + line)
+                if "#EXTINF:" not in line and '#EXTM3U' not in line:
+                    if useEXTINF == True:
+                        newlines.append(getSongInfo(line, folder))
+                    newlines.append(folder + "\\" + line)
             if useEXTINF == True:
                     newlines.insert(0,'#EXTM3U')
             append += "\n".join(newlines)
@@ -316,7 +318,7 @@ def cmdnew():
                 f.close()
 
                 for line in lines:
-                    if songParent + line not in playlist: #only add the song if it already isn't in the playlist, to avoid duplicates
+                    if songParent + line not in playlist and "#EXTINF:" not in line and '#EXTM3U' not in line: #only add the song if it already isn't in the playlist, to avoid duplicates
                         if useEXTINF == True:
                             playlist.append(getSongInfo(line, songParent.replace("\\","")))
                         playlist.append(songParent + line)
