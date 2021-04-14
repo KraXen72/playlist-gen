@@ -21,6 +21,7 @@ requirements:
 Available commands:
 - ``ext`` - set the extensions of music files. default: mp3
 - ``ign`` - set the folders to ignore in generation. none by default
+- ``plainm3u`` - use plain .m3u instead of extended .m3u, faster but may not work on some players.
 - ``gen`` - recursively generate m3u playlists for all folders and subfolders
 - ``prg`` - delete all existing .m3u files in the working directory for a clean slate
 - ``com`` - generate a playlist from multiple specific folders

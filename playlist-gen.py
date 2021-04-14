@@ -74,7 +74,7 @@ def generatem3u(currpath, returnInsteadOfWriting, includePlaylists):
             myexts.append('m3u')
 
         if str(ext).lower() in myexts:
-            if useEXTINF == True:
+            if useEXTINF == True and returnInsteadOfWriting == False and includePlaylists == False:
                 music.append(getSongInfo(song, currpath))
             music.append(song)
     if str(name) in ign: #ingore if on the ignore list
@@ -84,7 +84,7 @@ def generatem3u(currpath, returnInsteadOfWriting, includePlaylists):
             if returnInsteadOfWriting == True:
                 return music
             else:
-                if useEXTINF == True:
+                if useEXTINF == True and returnInsteadOfWriting == False and includePlaylists == False:
                     music.insert(0,'#EXTM3U')
                 f = codecs.open(currpath + "\\" + name+".m3u", "w", "utf-8")
                 aaa = "\n".join(music)
@@ -117,6 +117,7 @@ def cmdhelp():
         "---------- setup ----------",
         "'ext' - set the extensions of music files. default: mp3",
         "'ign' - set the folders to ignore in generation. none by default",
+        "'plainm3u' - use plain .m3u instead of extended .m3u, faster but may not work on some players.",
         "---------- actions ----------",
         "'gen' - recursively generate m3u playlists for all folders and subfolders",
         "'prg' - delete all existing .m3u files in the working directory for a clean slate",
@@ -249,8 +250,8 @@ def cmdadd(mode):
                     if useEXTINF == True:
                         newlines.append(getSongInfo(line, folder))
                     newlines.append(folder + "\\" + line)
-            if useEXTINF == True:
-                    newlines.insert(0,'#EXTM3U')
+            #if useEXTINF == True:
+            #        newlines.insert(0,'#EXTM3U')
             append += "\n".join(newlines)
             f.close()
         f = codecs.open(currpath + "\\" + playlist, "a", "utf-8")
@@ -328,7 +329,9 @@ def cmdnew():
                 playlist.append(song)
         else: #pasue the process
             print("---------- {}.m3u ----------".format(name))
-            print(playlist)
+            for ponk in playlist:
+                if "#EXTINF" not in ponk:
+                    print(ponk)
             print("----------")
             print("add more? (a) save to file? (s) cancel? (c)")
             decision = input(": ")
@@ -355,7 +358,23 @@ def cmdnew():
     elif save == False:
         print("creating playlist was cancelled, notihing saved.")
 
+# disable useEXTINF and use plain m3u
+def plainm3u():
+    print("---------- plaimm3u")
+    print("all playlist operations will now be plain m3u instead of extended m3u.")
+    print("---------- what does this mean?")
+    print("this omits all #EXTINF lines, as well as #EXTM3U as the first line and is a lot faster.")
+    print("however, some players won't recognize plain m3u playlists and refuse to play them.")
+    print("this is temporary, next time you run the script, it will still use extended m3u.")
+    print("---------- wait no go back i want extended m3u")
+    print("if you acidentally ran this command, just exit out of this utility and run it again.")
+    print("---------- ok what now")
+    print("it is recommended to run 'gen' before anything else so the playlists generate in plain m3u.")
+
+    return False
+
 currpath = str(pathlib.Path(__file__).parent.absolute())
+bull = chr(8226)
 print("welcome to playlist generator.")
 print("----------")
 
@@ -368,13 +387,15 @@ if os.path.isfile(currpath + "\\gen-ignorelist.txt"):
     print(ign)
 
 while True: #main command loop
-    print("----------")
-    command = input('gen: what would you like to do? ("help" to list all commands): ')
+    print("\n")
+    command = input( bull + ' gen: what would you like to do? ("help" to list all commands): ')
 
     if command == 'help':
         cmdhelp()
     elif command == 'exit' or command == "quit":
         quit()
+    elif command == "plainm3u":
+        useEXTINF = plainm3u()
     elif command == 'gen':
         cmdgen()
     elif command == "ext":
