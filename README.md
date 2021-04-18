@@ -13,7 +13,7 @@ requirements:
   
 ## Install
 1. Clone this repo
-2. run ``pip install prompt-toolkit mutagen`` anywhere
+2. run ``pip install prompt-toolkit mutagen decimal tinytag`` anywhere
 3. copy ``playlist-gen.py`` to the folder with all your music
 4. run ``python playlist-gen.py`` or just ``playlist-gen.py`` in the folder with all your music. clicking on it should also run it.
 

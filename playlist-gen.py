@@ -1,8 +1,16 @@
+#file operations
 import os
 import pathlib
 import codecs
-import mutagen
+
+#music file metadata reading
+from tinytag import TinyTag #add tinytag to readme
+import mutagen #file length
+
+#rounding
 from decimal import *
+
+#autocomplete
 from prompt_toolkit.completion import WordCompleter, FuzzyWordCompleter
 from prompt_toolkit.shortcuts import prompt
 from prompt_toolkit.validation import Validator, ValidationError
@@ -15,29 +23,42 @@ ign = [] #folder names to ignore
 
 #functions
 
+#format song length
+def formatSongLength(len):
+    # round to 3 decimal spaces and replace the dot with nothing
+    bonk = str(Decimal(len).quantize(Decimal('0.001'), ROUND_HALF_UP)).replace(".","")
+    return bonk
+
 #get info about a song
 def getSongInfo(song, currpath):
     if currpath != "": #if currpath is empty, then just put the song by itself
         currpath += "\\"
+    
     info = mutagen.File(currpath + song)
     output = info
+
+    tag = TinyTag.get(currpath + song)
     title = ""
     artist = ""
 
     try:
-        artist = output.tags["TPE1"].text[0]
+        artist = tag.artist
     except:
         artist = "Unknown Artist"
 
     try:
-        title = output.tags["TIT2"].text[0]
+        title = tag.title
     except: 
         title = "Unknown Title"
+ 
+    if title == "Unknown Title" and artist == "Unknown Artist":
+        print("----bad: " + song)
     
     myinfo = {
         "ttitle": title,
         "tartist": artist,
-        "tlength": str(Decimal(output.info.length).quantize(Decimal('0.001'), ROUND_HALF_UP)).replace(".","") # round to 3 decimal spaces and replace the dot with nothing
+        #"tlength": formatSongLength(int(tag.duration))
+        "tlength": formatSongLength(output.info.length)
     }
     extinfo = "#EXTINF:{},{} - {}".format(myinfo["tlength"], myinfo["tartist"], myinfo["ttitle"])
     return extinfo
