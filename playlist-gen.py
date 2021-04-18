@@ -20,6 +20,7 @@ global useEXTINF
 useEXTINF = True
 exts = ["mp3"] #extensions to consider as valid
 ign = [] #folder names to ignore
+naughtylist = [] #songs that i should redownload
 
 #functions
 
@@ -42,22 +43,33 @@ def getSongInfo(song, currpath):
     artist = ""
 
     try:
-        artist = tag.artist
+        artist = str(tag.artist)
     except:
         artist = "Unknown Artist"
 
     try:
-        title = tag.title
+        title = str(tag.title)
     except: 
         title = "Unknown Title"
+    
+    #print(title + " - "+ artist)
  
-    if title == "Unknown Title" and artist == "Unknown Artist":
-        print("----bad: " + song)
+    #if there is no artist or title then just put filename as title
+    if title == "None" and artist == "None":
+        songy = song.rsplit("\\", 1) #remove folder
+        if songy.__len__() > 1:
+            songy = songy[1]
+        else:
+            songy = songy[0]
+        parts = songy.rsplit('.',1) #remove extension
+        title = parts[0]
+        artist = "Unknown Artist"
+        naughtylist.append(song)
     
     myinfo = {
         "ttitle": title,
         "tartist": artist,
-        #"tlength": formatSongLength(int(tag.duration))
+        #"tlength": formatSongLength(int(tag.durations))
         "tlength": formatSongLength(output.info.length)
     }
     extinfo = "#EXTINF:{},{} - {}".format(myinfo["tlength"], myinfo["tartist"], myinfo["ttitle"])
@@ -68,7 +80,7 @@ def getSongInfo(song, currpath):
 # currpath (str) - the path to generate
 # returnInsteadOfWriting (bool) - return an array of the songs instead of making a file
 # includePlaylists (bool) - include .m3u playlists as songs
-def generatem3u(currpath, returnInsteadOfWriting, includePlaylists): 
+def generatem3u(currpath, includeSongs, returnInsteadOfWriting, includePlaylists): 
     music = [] #valid music files
     listOfFiles = [] #all files for the current directory, with relative path
 
@@ -91,6 +103,9 @@ def generatem3u(currpath, returnInsteadOfWriting, includePlaylists):
 
         #if the file extension is in the 'myext' list, add it to music
         myexts = exts
+        if includeSongs == False:
+            myexts = []
+
         if includePlaylists == True:
             myexts.append('m3u')
 
@@ -127,7 +142,7 @@ def cmdgen():
     dirs = [str(x[0]) for x in os.walk(currpath)] 
 
     for dir in dirs: #generate for every subdirectory
-        generatem3u(dir, False, False)
+        generatem3u(dir, True, False, False)
     
     print("done. ")
 
@@ -147,6 +162,7 @@ def cmdhelp():
         "'add -r' - same thing as 'add' but appends the folder name to the playlist name. ",
         "'new' - manually make a new playlist by selecting songs and playlists",
         "---------- other ----------",
+        "'naughty' - [EXPERIMENTAL] run this after 'gen' to find songs with bad metadata that you can redownload / fix"
         "'help' - display this message",
         "'exit' or 'quit' - exit this utility"]
     print("\n".join(prn))
@@ -208,43 +224,6 @@ def cmdprg():
     else:
         print("purge was cancelled.")
 
-#make a playlist out of x folders
-def cmdcom():
-    print("---------- com")
-    print("enter the names of top level folders you want to combine in a playlist separated by a , \n this will create a new playlist, not overwrite the original ones. \n example: grandson,oliver tree")
-    plays = input(": ").split(",")
-    if plays.__len__() > 1:
-        currpath = str(pathlib.Path(__file__).parent.absolute())
-        contents = ""
-        for p in plays:
-            if os.path.isdir(p):
-                generatem3u(currpath + "\\" + p, False, False)
-
-                f = codecs.open("{}\\{}\\{}.m3u".format(currpath, p, p), "r", "utf-8")
-                tempcontents = f.read()
-                lines = tempcontents.split("\n")
-                newlines = []
-                for line in lines:
-                    if "#EXTINF:" not in line and '#EXTM3U' not in line:
-                        if useEXTINF == True:
-                            newlines.append(getSongInfo(line, p))
-                        newlines.append(p + "\\" + line)
-                if useEXTINF == True:
-                    newlines.insert(0,'#EXTM3U')
-                contents += "\n".join(newlines)
-                f.close()
-            else:
-                print("'{}' is not a folder. skipping.".format(p))
-        if contents != "":
-            f = codecs.open(" + ".join(plays) + ".m3u", "w", "utf-8")
-            f.write(contents)
-            f.close()
-            print("generated '{}.m3u'".format(" + ".join(plays)))
-        else:
-            print("no valid folders, nothing generated.")
-    else:
-        print("this requires at least 2 folders to combine")
-
 #add x folders to an existing playlist
 # parameters: mode (string) ["normal"|"rename"], rename appends the folders to the playlist name
 def cmdadd(mode):
@@ -294,12 +273,23 @@ def cmdadd(mode):
         print(playlist + " does not exist.")
 
 #create a new playlist by adding songs and playlists together
-def cmdnew():
-    print("---------- new")
+# a multipurpose manual playlist maker
+# if includeSongs == True, this is cmdnew
+# if includeSongs == False, thi is cmdcom
+def cmdnew(includeSongs):
+
+    if includeSongs == True:
+        print("---------- new")
+    elif includeSongs == False:
+        print("---------- com")
+    
     print("name your new playlist: ")
     name = input(": ")
 
-    allsongs = generatem3u(currpath, True, True)
+    if includeSongs == True:
+        allsongs = generatem3u(currpath, True, True, True)
+    elif includeSongs == False:
+        allsongs = generatem3u(currpath, False, True, True)
 
     #set up autocomplete
     class SongValidator(Validator): #autocomplete validator = check if song acutally exists
@@ -307,11 +297,13 @@ def cmdnew():
             text = document.text
             if text and text not in allsongs and text != "$playlist-done":
                 raise ValidationError(message="this song doesen't exist", cursor_position=text.__len__())
-    #set up completer
+    
     done = False
     save = False
     song = ""
     playlist = []
+    commandhistory = []
+
     print("---------- new playlist: {}.m3u".format(name))
     print("search for a song or playlist you want to add (tab to show suggestions)")
     print("if you are done, just type '$playlist-done'")
@@ -319,21 +311,24 @@ def cmdnew():
     while done == False:
         availableSongs = [x for x in allsongs if x not in playlist] #only suggest songs not already in the playlist
         availableSongs.append("$playlist-done")
+
+        #set up completer
         song_completer = WordCompleter(availableSongs, ignore_case=True, sentence = True,match_middle=True)
         # autocomplete prompt
         song = prompt("-> ",completer=song_completer,validator=SongValidator(),complete_while_typing=True,validate_while_typing=False)
 
         if song != "$playlist-done":
+            commandhistory.append(song) #add this song to the command history, so i can print it later
             if ".m3u" in song: # if its a playlist add all its songs
-                songParent = song.split("\\")[0] 
-                # if we are adding a playlist in the same directory, the songparent will be the file itself, so in that case, don't add any parent dir to the song
-                if ".m3u" in songParent and os.path.isfile(currpath + "\\" + songParent):
-                    songParent = ""
-                else:
-                    #else append the parent Directory and a backslash to the song
+                songParent = song.rsplit("\\", 1)[0]
+                
+                if songParent[-1] != "\\": #add a slash to the end if there isn't one
                     songParent += "\\"
 
-                # read the playlist file, get an array of all it's lines
+                #if the playlist is in the topmost directory, the songParent will be the song itself
+                if songParent == song + "\\":
+                    songParent = ""
+
                 f = codecs.open(currpath + "\\" + song, "r", "utf-8")
                 tempcontents = f.read()
                 lines = tempcontents.split("\n")
@@ -342,7 +337,7 @@ def cmdnew():
                 for line in lines:
                     if songParent + line not in playlist and "#EXTINF:" not in line and '#EXTM3U' not in line: #only add the song if it already isn't in the playlist, to avoid duplicates
                         if useEXTINF == True:
-                            playlist.append(getSongInfo(line, songParent.replace("\\","")))
+                            playlist.append(getSongInfo(line, songParent))
                         playlist.append(songParent + line)
             else: #add the song to the playlist
                 if useEXTINF == True:
@@ -350,9 +345,13 @@ def cmdnew():
                 playlist.append(song)
         else: #pasue the process
             print("---------- {}.m3u ----------".format(name))
-            for ponk in playlist:
-                if "#EXTINF" not in ponk:
-                    print(ponk)
+            if includeSongs == True: #cmdnew, print all the songs
+                for ponk in playlist:
+                    if "#EXTINF" not in ponk:
+                        print(ponk)
+            elif includeSongs == False: #cmdcom, just show the playlists from command history
+                for command in commandhistory: 
+                    print(bull + " " + command)
             print("----------")
             print("add more? (a) save to file? (s) cancel? (c)")
             decision = input(": ")
@@ -432,13 +431,18 @@ while True: #main command loop
     elif command == "prg":
         cmdprg()
     elif command == "com":
-        cmdcom()
+        cmdnew(False)
     elif command == "add":
         cmdadd("normal")
     elif command == "add -r":
         cmdadd("rename")
     elif command == "new":
-        cmdnew()
+        cmdnew(True)
+    elif command == "naughty":
+        f = codecs.open(currpath + "\\naughty-list.txt", "w", "utf-8")
+        f.write("\n".join(naughtylist))
+        f.close()
+        print("naughty list written.")
     else:
         print("'{}' is not a command. use 'help' to display all commands.".format(command))
        

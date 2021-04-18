@@ -27,6 +27,7 @@ Available commands:
 - ``com`` - generate a playlist from multiple specific folders
 - ``add`` - add a folder or folders to a playlist made by ``com``. doesen't rename the playlist
 - ``add -r`` - same thing as ``add`` but appends the folder name to the playlist name. 
+- ``naughty`` - [EXPERIMENTAL] run this after ``gen`` to find songs with bad metadata that you can redownload / fix
 - ``new`` - manually make a new playlist by selecting songs and playlists
 - ``help`` - display this message
 - ``exit`` or ``quit`` - exit this utility
