@@ -1,5 +1,8 @@
-# playlist-gen
+# please use my new app for this, [playlist manager!](https://github.com/KraXen72/playlist-manager)
+![alt](https://cdn.discordapp.com/attachments/572445509235507252/840273196779175997/Capture_2021_m05.d07_1905.gif)
   
+--------------------------------------
+# playlist-gen (archived)
 This is a small utility in python that i made to generate ``.m3u`` playlists if you have your music sorted into folders. example:  
 ![ex1](https://cdn.discordapp.com/attachments/704792091955429426/813334438322765864/playlist_gen.png)
   
